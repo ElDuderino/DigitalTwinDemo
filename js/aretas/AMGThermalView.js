@@ -690,6 +690,116 @@ class AMGThermalView {
 }
 
 
+/** we need to decode the array of bytes into an array of floats  */
+/**
+ * The raw data stored in the WS is an array of bytes but the AMG thermal data is a 8x8 array of floats
+ * @param {*} data 
+ */
+function decodeThermalDataFromWS(data) {
+
+    var counter = 0;
+
+    $.each(data, function (key, value) {
+
+        var byteArray = value.data;
+        var retArray = new Array();
+
+        var tmpArray = new Array();
+        var buf = new ArrayBuffer(4);
+        var view = new DataView(buf);
+        var incr = 0;
+
+        for (var i = 0; i < byteArray.length; i++) {
+
+            tmpArray[incr] = byteArray[i];
+
+            if (incr == 3) {
+                incr = 0;
+                tmpArray.forEach(
+                    function (b, i) {
+                        view.setUint8(i, b);
+                    }
+                );
+
+                var num = view.getFloat32(0);
+                retArray.push(num);
+                //console.log(num);
+            } else {
+                incr++;
+            }
+
+        }
+
+        value.data = retArray;
+        //console.log("length:" + retArray.length);
+
+    });
+
+    console.log("Done translation..");
+
+}
+/**
+ * 
+ * @param {*} data 
+ */
+function createThermalStatsObject(data) {
+
+    var ret = {};
+
+    /** create thermal stats object from an array of thermal readings */
+    var min = {
+        min: 0,
+        timestamp: 0
+    };
+    var max = {
+        max: 0,
+        timestamp: 0
+    };
+    var avg = 0;
+    var avgCount = 0;
+
+    min.min = data[0].data[0];
+    max.max = data[0].data[0];
+
+    for (var i = 0; i < data.length; i++) {
+
+        var sensorReport = data[i];
+
+        for (var j = 0; j < sensorReport.data.length; j++) {
+
+            var temperature = sensorReport.data[j];
+
+            avg = avg + temperature;
+
+            if (temperature > max.max) {
+                max.max = temperature;
+                max.timestamp = sensorReport.timestamp;
+            }
+
+            if (temperature < min.min) {
+                min.min = temperature;
+                min.timestamp = sensorReport.timestamp;
+            }
+
+            avgCount++;
+        }
+
+    }
+
+    //console.log("avg Count" + avgCount);
+
+    avg = avg / avgCount;
+
+    ret.avgForPeriod = avg;
+    ret.minForPeriod = min.min;
+    ret.maxForPeriod = max.max;
+    ret.minTimestamp = min.timestamp;
+    ret.maxTimestamp = max.timestamp;
+
+    return ret;
+}
+
+
 
 
 

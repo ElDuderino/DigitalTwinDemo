@@ -81,16 +81,6 @@ class AretasAppInstance {
 
             console.log("Received Sensor Type Info");
 
-            /**
-            //we depend on a few fields that may not be present, so we need to set defaults 
-            //and yes... I know this is bad practice
-            for (let i = 0; i < data.length; i++) {
-                if (data[i].hasOwnProperty("sensorColor") == false) {
-                    data[i].sensorColor = "0xAAAAAA";
-                }
-            }
-            */
-
             this.sensorTypeInfo = data;
 
         } catch (error) {
@@ -2738,4 +2728,144 @@ class SensorStatusData {
     get type() {
         return this._type;
     }
+}
+
+class AretasAlertHistory {
+
+    constructor(aretasAppInstance) {
+        this._AAI = aretasAppInstance;
+    }
+
+    queryAlertHistory(domTarget) {
+
+        var jsonStr = JSON.stringify(AAI.clientLocationView.allMacs);
+
+        let classThis = this;
+
+        $.ajax({
+            beforeSend: function (xhr) {
+                xhr.setRequestHeader('Authorization', "Bearer " + classThis._AAI.bearerToken);
+            },
+            dataType: "json",
+            data: jsonStr,
+            contentType: "application/json",
+            type: "POST",
+            url: ASNAPIURL + "alerthistory/list",
+            success: function (data) {
+                classThis.onQueryAlertHistoryOK(data, domTarget);
+            },
+            error: function (data) {
+                console.log("Error calling sensor alert statuses");
+                //console.log(data);
+            }
+        });
+
+    }
+
+
+    /**
+     * 
+     * @param {*} data 
+     * @param {*} container 
+     */
+    onQueryAlertHistoryOK(alertHistoryResults, domTarget) {
+
+        $(domTarget).empty();
+
+        const spanTitle = document.createElement("span");
+        spanTitle.setAttribute("class", "title-text");
+        spanTitle.append("Notifications:");
+
+        //domTarget.append(spanTitle);
+
+        const classThis = this;
+
+        for (const value of alertHistoryResults) {
+
+            const dismissBtn = document.createElement("button");
+            dismissBtn.setAttribute("class", "dismiss-btn");
+            dismissBtn.append("X");
+
+            const d = document.createElement("div");
+            d.setAttribute("class", "alert-notice");
+
+            d.append(dismissBtn);
+
+            $(dismissBtn).click((evt) => {
+                $(d).hide();
+                classThis.dismissAlertHistoryObject(value.mac, value.sensorType, value.alertId);
+            });
+
+            const alertIcon = document.createElement("i");
+            alertIcon.setAttribute("class", "fas fa-exclamation-circle");
+
+            d.append(alertIcon);
+
+            const spanMsg = document.createElement("span");
+            spanMsg.setAttribute("class", "msg");
+
+            //Sensor TRHCO2-blah is in Alert state. CO2 is xxx PPM at 16:00
+            const sInfo = this._AAI.getSensorTypeInfo(value.sensorType);
+            const sensorObj = this._AAI.getSensorByMac(value.mac);
+
+            const date = moment(value.timestamp).format('MMMM Do YYYY, HH:mm');
+            const msg1 = "Device " + sensorObj.description + " triggered an Alert.";
+            const msg2 = sInfo.label + " was " + value.sensorData.toFixed(2) + sInfo.units + " at " + date;
+
+            const br = document.createElement("br");
+
+            const start = value.timestamp - (30 * 60 * 1000);
+            const end = value.timestamp + (30 * 60 * 1000);
+
+            const a = document.createElement("a");
+            a.setAttribute("href", `analytics.html?mac=${value.mac}&start=${start}&end=${end}`);
+            a.setAttribute("title", "Click to view data around that time");
+
+            const chartIcon = document.createElement("i");
+            chartIcon.setAttribute("class", "fas fa-chart-area");
+            a.append(chartIcon);
+
+            spanMsg.append(msg1, br, msg2, a);
+            d.append(spanMsg);
+            domTarget.append(d);
+
+        }
+    }
+
+    /**
+     * Dismiss an alert history object in the back end ("mark it read")
+     * 
+     * @param {*} mac 
+     * @param {*} type 
+     * @param {*} alertId 
+     */
+    dismissAlertHistoryObject(mac, type, alertId) {
+
+        console.info(`Dismissing AlertHistory for mac:${mac} type:${type} alertId:${alertId}`);
+
+        let classThis = this;
+
+        //get approximate location
+        $.ajax({
+            beforeSend: function (xhr) {
+                xhr.setRequestHeader('Authorization', "Bearer " + classThis._AAI.bearerToken);
+            },
+            dataType: "json",
+            type: "GET",
+            url: ASNAPIURL + "alerthistory/dismiss",
+            data: {
+                mac: mac,
+                type: type,
+                alertId: alertId
+            },
+            success: function (data) {
+                console.log(`Dismissed AlertHistoryObject mac:${mac} type:${type} alertId:${alertId}`);
+            },
+            error: function (err) {
+                console.error(`Could not dismiss alertHistoryObject! ${err}`);
+            }
+
+        });
+    }
+
 }

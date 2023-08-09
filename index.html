@@ -98,7 +98,7 @@
     }
   </style>
 
-
+  <link href="js/DataTables/datatables.css" rel="stylesheet">
   <!-- Custom styles for this template -->
   <link href="css/sidebars.css" rel="stylesheet">
 </head>
@@ -189,32 +189,34 @@
     </symbol>
   </svg>
   <header class="navbar sticky-top bg-dark flex-md-nowrap p-0 shadow" data-bs-theme="dark">
-    <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3 fs-6 text-white" href="#">Company name</a>
-  
+    <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3 fs-6 text-white" href="#">ASN UI Skeleton</a>
+
     <ul class="navbar-nav flex-row d-md-none">
       <li class="nav-item text-nowrap">
         <button class="nav-link px-3 text-white" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSearch" aria-controls="navbarSearch" aria-expanded="false" aria-label="Toggle search">
-          <svg class="bi"><use xlink:href="#search"></use></svg>
+          <svg class="bi">
+            <use xlink:href="#search"></use>
+          </svg>
         </button>
       </li>
       <li class="nav-item text-nowrap">
         <button class="nav-link px-3 text-white" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="false" aria-label="Toggle navigation">
-          <svg class="bi"><use xlink:href="#list"></use></svg>
+          <svg class="bi">
+            <use xlink:href="#list"></use>
+          </svg>
         </button>
       </li>
     </ul>
-  
+
     <div id="navbarSearch" class="navbar-search w-100 collapse">
       <input class="form-control w-100 rounded-0 border-0" type="text" placeholder="Search" aria-label="Search">
     </div>
   </header>
   <main class="d-flex flex-nowrap">
     <div class="d-flex flex-column flex-shrink-0 p-3 text-bg-dark" style="width: 280px;">
-      <a href="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none">
-        <svg class="bi pe-none me-2" width="40" height="32">
-          <use xlink:href="#bootstrap" />
-        </svg>
-        <span class="fs-4">Sidebar</span>
+      <a href="/" class="d-flex align-items-vertical mb-3 mb-md-0 me-md-auto text-white text-decoration-none">
+        <div class="d-block"><img src="images/logo-sm-dark.png" style="width: 200px;"></div>
+        <!--<span class="fs-4">Sidebar</span>-->
       </a>
       <hr>
       <ul class="nav nav-pills flex-column mb-auto">
@@ -232,14 +234,6 @@
               <use xlink:href="#speedometer2" />
             </svg>
             Dashboard
-          </a>
-        </li>
-        <li>
-          <a href="#" class="nav-link text-white">
-            <svg class="bi pe-none me-2" width="16" height="16">
-              <use xlink:href="#table" />
-            </svg>
-            Orders
           </a>
         </li>
         <li>
@@ -278,11 +272,36 @@
     </div>
     <div class="d-flex flex-column p-3">
       <div class="row">
-        <h2>IoT Main Index</h2>
-  
         
-        
-  
+        <!--controls-->
+        <div id="main-sensor-container-controls" class="mb-2" style="font-size:85%">
+          <div class="form-inline">
+            <div class="form-group p-1 mr-3">
+              <label for="type-select" class="col-form-label mr-2">Filter by Type:</label>
+              <select class="form-control form-control-sm" id="type-select" data-style="btn-primary">
+
+              </select>
+            </div>
+            <div class="form-group form-check-inline">
+              <label class="form-check-label" for="chk-auto-update"> Auto update:</label><input class="mb-0 ml-2" type="checkbox" id="chk-auto-update" checked>
+            </div>
+
+          </div>
+
+        </div>
+
+        <div class="container p-3 dashboard-stats-container">
+          <h4>Data from all live sensors:</h4>
+          <div id="main-stats-container" class="container">
+
+            <div class="clearfix"></div>
+            <div id="table-container" class="table-responsive">
+              <table id="table-live-sensor-data" width="100%"></table>
+            </div>
+
+          </div>
+        </div>
+
       </div>
     </div>
   </main>
@@ -294,44 +313,399 @@
   <script src="js/bootstrap-5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="js/js.cookie.js"></script>
   <script src="js/bootbox.js"></script>
+  <script src="js/DataTables/datatables.js"></script>
   <script src="js/moment.js"></script>
   <script src="js/turf.min.js"></script>
   <script src="js/sidebars.js"></script>
   <script src="js/aretas/AretasGlobalInit.js"></script>
   <script src="js/aretas/aretas-commons.js"></script>
   <script>
-    $(document).ready(() => {
-      docReady()
-    });
-
-    //aretas application instance
+    var querySensorDataTimeoutRef = null;
+    var lastSelected = null;
+    var lastSensorData = null;
     let AAI;
 
-    //building maps instance
-    let BM;
-
-    //the sensor statuses
-    let sensorStatuses;
+    $(document).ready(() => {
+      docReady();
+    });
 
     async function docReady() {
 
       console.log("INIT");
 
       AAI = await aretas_init();
-      sensorStatuses = await AAI.getRawSensorStatuses();
 
-      //updateLocations(AAI.clientLocationView);
+      queryCacheData();
 
-      const AlertHistory = new AretasAlertHistory(AAI);
-      AlertHistory.queryAlertHistory(document.getElementById("div-notifications"));
+      $('#type-select').change(() => {
+        lastSelected = $('#type-select :selected').val();
+        console.log(`Last selected: ${lastSelected}`);
+        updateSensorStatusTable(lastSensorData);
+      });
 
-      //BM = new AretasBuildingMaps(AAI, "#modalBuildingMaps");
-
-      $('.modal').draggable({
-        handle: ".modal-header"
+      $('#chk-auto-update').change(() => {
+        let enable_timer = $('#chk-auto-update').is(":checked");
+        if (enable_timer) {
+          clearTimer();
+          queryTileData();
+        } else {
+          clearTimer();
+        }
       });
 
 
+    }
+
+    function clearTimer() {
+      if (querySensorDataTimeoutRef != null) {
+        try {
+          clearTimeout(querySensorDataTimeoutRef);
+          querySensorDataTimeoutRef = null;
+        } catch (error) {
+          console.log("Couldn't clear timeout");
+          console.log(error);
+        }
+      }
+    }
+
+    function queryCacheData() {
+
+      console.log("Fetching data");
+
+      $('#loader').show();
+      enableInputs(false);
+
+      let enable_timer = $('#chk-auto-update').is(":checked");
+
+      //we should have a populated ClientLocationView
+      //lets get the sensor reports
+      $.ajax({
+        beforeSend: function (xhr) {
+          xhr.setRequestHeader('Authorization', "Bearer " + AAI.bearerToken);
+        },
+        dataType: "json",
+        contentType: "application/json",
+        type: "POST",
+        url: ASNAPIURL + "sensorreport/latest",
+        data: JSON.stringify(AAI.clientLocationView.allMacs),
+        success: function (data) {
+          //render the tiles
+          lastSensorData = data;
+          updateSensorStatusTable(lastSensorData, true);
+          if (enable_timer) {
+            querySensorDataTimeoutRef = setTimeout(queryCacheData, 30000);
+          } else {
+            clearTimer();
+          }
+        },
+        error: function (err) {
+          bootbox.alert("Couldn't load sensor status reports!");
+          console.log("Error fetching sensorreports");
+          console.log(err);
+        },
+        complete: function (status) {
+          $('#loader').hide();
+          enableInputs(true);
+        }
+
+      });
+
+    }
+
+    /**
+     * disable the inputs during loading to prevent requerying
+     */
+    function enableInputs(enableInput) {
+
+      enableInput = !enableInput;
+      document.getElementById('type-select').enabled = enableInput;
+      document.getElementById('chk-auto-update').enabled = enableInput;
+
+    }
+
+    function filterTable() { }
+
+    function constructDataTable() {
+
+      console.log("Creating data table")
+
+      let dataTbl = $('#table-live-sensor-data').DataTable({
+        pageLength: "25",
+        deferRender: true,
+        stateSave: false,
+        responsive: true,
+        order: [3, "asc"],
+        columns: [{
+          title: "Location",
+          render: (data, type) => {
+            if (type === 'display') {
+
+              let dashIcon = document.createElement("i");
+              dashIcon.setAttribute("class", "fas fa-tachometer-alt mr-2");
+
+              let locHref = document.createElement("a");
+              locHref.setAttribute("class", "");
+              locHref.setAttribute("href", "dashboard.html?locationId=" + data.id);
+              locHref.setAttribute("alt", "Click to go to Location Dashboard");
+              locHref.setAttribute("title", "Click to go to Location Dashboard");
+              locHref.append(dashIcon, data.description);
+
+              return locHref.outerHTML;
+
+            } else {
+              return data.description;
+            }
+          }
+        }, {
+          title: "MAC",
+          render: (data, type) => {
+
+            if (type === 'display') {
+
+              let dashIcon = document.createElement("i");
+              dashIcon.setAttribute("class", "fas fa-tachometer-alt mr-2");
+
+              let hrefA = document.createElement("a");
+
+              hrefA.setAttribute("href", "sensor.html?mac=" + data);
+              hrefA.setAttribute("class", "");
+              hrefA.setAttribute("alt", "Click to go to the Sensor Dashboard Page");
+              hrefA.setAttribute("title", "Click to go to the Sensor Dashboard Page");
+              hrefA.append(dashIcon, data);
+
+              return hrefA.outerHTML;
+
+            } else if (type === 'sort') {
+              return parseInt(data);
+            } else {
+              return data;
+            }
+          }
+
+        }, {
+          title: "Description",
+          render(data, type) {
+            if (type === 'display') {
+
+              let badge = document.createElement("span");
+              badge.setAttribute("class", "");
+              badge.append(data);
+              return badge.outerHTML;
+
+            } else if (type === 'sort') {
+              return data;
+            } else {
+              return data;
+            }
+          }
+        }, {
+          title: "Timestamp",
+          render: (data, type) => {
+
+            if (type === 'display') {
+              const timestamp = new moment(data.timestamp).format('MMMM Do YYYY, HH:mm');
+              var tSpan = document.createElement("span");
+              tSpan.setAttribute("class", "");
+              tSpan.setAttribute("id", "timestamp-badge-for-" + data.mac);
+              tSpan.append(timestamp);
+              return tSpan.outerHTML;
+
+            } else if (type === 'sort') {
+              return parseInt(data.timestamp);
+            } else {
+              return parseInt(data.timestamp);
+            }
+          }
+
+        }, {
+          title: "Data",
+          render: (data, type) => {
+
+            if (type === 'display') {
+
+              let zoneBgColor = AAI.getIconDivColor(parseInt(data.type), data.data);
+              let div = document.createElement("div");
+              div.setAttribute("class", "info-div");
+              $(div).css("background-color", zoneBgColor);
+              $(div).css("color", getContrastingFontColor(zoneBgColor));
+
+              div.append(parseFloat(data.data).toFixed(1) + "" + AAI.getSensorTypeInfo(parseInt(data.type)).units);
+
+              return div.outerHTML;
+
+            } else {
+              return data.data;
+            }
+          }
+        }, {
+          title: "Type",
+          render: (data, type) => {
+            if (type == 'display') {
+
+              let spanNoWrap = document.createElement("span");
+              spanNoWrap.setAttribute("class", "text-nowrap");
+
+              let divIcon = document.createElement("div");
+              divIcon.setAttribute("class", "sensortype-icon type-" + data.type);
+
+              let sensorTypeInfo = AAI.getSensorTypeInfo(parseInt(data.type));
+              let typeLabel = document.createElement("span");
+              typeLabel.setAttribute("class", "");
+              typeLabel.append(sensorTypeInfo.label);
+
+              spanNoWrap.append(divIcon, typeLabel);
+              return spanNoWrap.outerHTML;
+
+            } else {
+              return data.type;
+            }
+          }
+        }],
+        data: {},
+        initComplete: function () {
+          $(this.api().table().container()).find('input[type="search"]').parent().wrap('<form>').parent().attr('autocomplete', 'off').css('overflow', 'hidden').css('margin', 'auto');
+        }
+      });
+
+      console.log("Table constructed!");
+
+      return dataTbl;
+    }
+
+
+    function updateSensorStatusTable(rawData, srcAjax = false) {
+
+      console.log("Updating sensor data table...");
+
+      let sensorData = rawData;
+
+      if (lastSelected != null) {
+        if (lastSelected !== "All Types") {
+          sensorData = rawData.filter(sensorDatum => sensorDatum.type == lastSelected);
+        }
+      }
+
+      let dataTbl;
+
+      //check if we have already converted the table into a DataTable
+      //if not, make one!
+      if ($.fn.dataTable.isDataTable('#table-live-sensor-data') === false) {
+
+        dataTbl = constructDataTable();
+
+      }
+
+      //get the reference if we don't already have one
+      dataTbl = $('#table-live-sensor-data').DataTable();
+
+      //remove any selected rows
+      dataTbl.$('tr.selected').removeClass('selected');
+
+      //the default error reporting is not user or developer friendly....
+      $.fn.dataTable.ext.errMode = 'none';
+
+      $('#table-live-sensor-data').on('error.dt', function (e, settings, techNote, message) {
+        console.log('An error has been reported by DataTables: ', message);
+      }).DataTable();
+
+      console.log("Clearing data...");
+      //clear the existing data
+      dataTbl.clear().draw();
+
+      console.log("Adding data...");
+
+      let start = new Date().getTime();
+
+      sensorData.forEach((sensorDatum, key) => {
+
+        //console.log(areaEventLogItem);
+        //get the sensor for this MAC
+        let sensorObj = AAI.getSensorByMac(sensorDatum.mac);
+        let locationObj = AAI.getLocationByID(sensorObj.owner);
+
+        try {
+          dataTbl.row.add([{
+            id: locationObj.id,
+            description: locationObj.description
+          },
+          sensorDatum.mac,
+          sensorObj.description,
+            sensorDatum,
+            sensorDatum,
+            sensorDatum,
+          ]);
+
+        } catch (e) {
+          console.log(e);
+        }
+
+
+      });
+
+      dataTbl.rows().draw();
+
+      let end = new Date().getTime();
+      console.log(`Adding data took ${end - start}ms!`);
+
+      if (srcAjax) {
+        console.log("Populating type select");
+        populateTypeSelect(rawData);
+        console.log("Populating type select complete");
+      }
+
+      $('#table-live-sensor-data tbody').on('click', 'tr', function () {
+
+        let data = dataTbl.row(this).data();
+        $('#table-live-sensor-data tr.selected').removeClass('selected');
+
+        if ($(this).hasClass('selected')) {
+          $(this).removeClass('selected');
+        } else {
+          $(this).addClass('selected');
+        }
+      });
+    }
+
+    function populateTypeSelect(rawData) {
+
+      let typesMap = new Map();
+
+      $(rawData).each((index, sensorDatum) => {
+
+        //this is crappy and repetitve, but oh well
+        let sensorTypeMetadata = AAI.getSensorTypeInfo(sensorDatum.type);
+        typesMap.set(sensorDatum.type, sensorTypeMetadata);
+
+      });
+
+      //fill out the select
+      let typeSelect = $('#type-select');
+      typeSelect.empty();
+
+      let allOpt = document.createElement("option");
+      allOpt.setAttribute("value", "All Types");
+      allOpt.append("All Types");
+
+      typeSelect.append(allOpt);
+
+      //sorted map
+      typesMap = new Map([...typesMap.entries()].sort((a, b) => {
+        return sortNumericProperty("rank", true)(a[1], b[1]);
+      }));
+
+      for (let [key, value] of typesMap.entries()) {
+
+        let opt = document.createElement("option");
+        opt.setAttribute("value", key);
+        opt.append(value.label + " " + value.units);
+        typeSelect.append(opt);
+
+      }
+      if (lastSelected) {
+        console.log(`Setting last selected to:${lastSelected}`);
+        $('#type-select option[value="' + lastSelected + '"]').prop('selected', true);
+        $('#type-select').val(lastSelected).change();
+      }
     }
   </script>
 </body>
