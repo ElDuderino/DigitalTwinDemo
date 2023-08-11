@@ -361,7 +361,7 @@ function renderLocationSelect(domElement, AAI) {
 
     let selectedVal = null;
 
-    for(locationSensorView of AAI.clientLocationView.locationSensorViews){
+    for (locationSensorView of AAI.clientLocationView.locationSensorViews) {
 
         //console.log(value);
         const opt = document.createElement("option");
@@ -386,20 +386,20 @@ function renderLocationSelect(domElement, AAI) {
         if (AAI.clientLocationView.nearestLocationIdWithData != null) {
 
             if (
-                AAI.clientLocationView.nearestLocationIdWithData == locationSensorView.location.id && 
-                locationSensorView.hasOwnProperty('lastSensorReportTime') && 
+                AAI.clientLocationView.nearestLocationIdWithData == locationSensorView.location.id &&
+                locationSensorView.hasOwnProperty('lastSensorReportTime') &&
                 ((Date.now() - locationSensorView.lastSensorReportTime) < (10 * 60 * 60 * 1000))
-                ) {
-                
+            ) {
+
                 domElement.value = locationSensorView.location.id;
                 opt.setAttribute("selected", true);
                 //@FIXME:
                 //selectedLocationId = value.location.id;
                 hasLocation = true;
-            }else if(
-                locationSensorView.hasOwnProperty('lastSensorReportTime') && 
-            ((Date.now() - locationSensorView.lastSensorReportTime) < (10 * 60 * 60 * 1000))
-            ){
+            } else if (
+                locationSensorView.hasOwnProperty('lastSensorReportTime') &&
+                ((Date.now() - locationSensorView.lastSensorReportTime) < (10 * 60 * 60 * 1000))
+            ) {
                 domElement.value = locationSensorView.location.id;
                 opt.setAttribute("selected", true);
                 hasLocation = true;
@@ -835,7 +835,7 @@ function hexToRGB(hex, alpha) {
 /**
  * utility function to generate a consistent palette select/options
  */
-function getPaletteSelect(){
+function getPaletteSelect() {
 
     const select = document.createElement("select");
     select.setAttribute("placeholder", "Choose a color palette");
@@ -860,9 +860,9 @@ function getPaletteSelect(){
     const opt5 = document.createElement("option");
     opt5.setAttribute("value", "4");
     opt5.append("Visual Spectrum");
-    
+
     select.append(opt1, opt2, opt3, opt4, opt5);
-    
+
     select.value = '4';
 
     return select;
@@ -1130,6 +1130,230 @@ function replacer(key, value) {
         };
     } else {
         return value;
+    }
+}
+
+class FullChartPopup {
+
+    /**
+     * 
+     * @param {*} aretasAppInstance 
+     * @param {*} targetDomElement The targetDomElement should be a modalFullChart with ID modalChartPopup
+     */
+
+    constructor(aretasAppInstance, targetDomElement) {
+        this._AAI = aretasAppInstance;
+        this._targetDomElement = targetDomElement;
+        this._sensorType = null;
+        this._sensorId = null;
+
+        const classThis = this;
+        this._targetDomElement.querySelector('#interval-select').addEventListener('change', (evt)=>{
+            classThis.showFullChart(classThis._sensorType, classThis._sensorId);
+        });
+    }
+
+    /**
+     * 
+     * @returns 
+     */
+    getStartEndTimes() {
+
+        console.log(this._targetDomElement);
+
+        let ret = {};
+
+        console.log(this._targetDomElement.querySelector('#interval-select').value);
+
+        let interval = parseInt(this._targetDomElement.querySelector('#interval-select').value);
+
+        ret.start = Date.now() - (interval * 60 * 1000);
+        ret.end = Date.now();
+
+        console.debug(`Interval:${ret.start} ${ret.end}`);
+
+        return ret;
+    }
+
+    /**
+     * 
+     * @param {*} data 
+     */
+    doChartStuff(data, mac, sensorType, sensorObj, locationObj) {
+
+        const sensorInfoElement = this._targetDomElement.querySelector("#modalChartPopup-sensor-info");
+        const locationInfoElement = this._targetDomElement.querySelector("#modalChartPopup-location-info");
+
+        console.debug(sensorInfoElement);
+
+        if (sensorInfoElement.innerHTML) sensorInfoElement.innerHTML = "";
+        if (locationInfoElement.innerHTML) locationInfoElement.innerHTML = "";
+
+        sensorInfoElement.innerHTML = `Device: ${sensorObj.description} in`;
+        locationInfoElement.innerHTML = `${locationObj.description} at ${locationObj.streetAddress} , ${locationObj.city}`;
+
+        const chartContainer = document.createElement("div");
+        chartContainer.setAttribute("class", "chart-container");
+        this._targetDomElement.querySelector('#modal-full-chart').append(chartContainer);
+
+        const sensorTypeInfo = this._AAI.getSensorTypeInfo(sensorType);
+
+        const chartY = data.map((datum)=> datum.data);
+        const chartX = data.map((datum)=> datum.timestamp);
+
+        console.log(sensorTypeInfo);
+
+        const options = {
+            series: [
+                {
+                    name: `${sensorTypeInfo.label} ${sensorTypeInfo.units}`,
+                    data: chartY,
+                },
+            ],
+            chart: {
+                height: 350,
+                type: 'line',
+                dropShadow: {
+                    enabled: true,
+                    color: '#000',
+                    top: 18,
+                    left: 7,
+                    blur: 10,
+                    opacity: 0.2
+                },
+                toolbar: {
+                    show: false
+                }
+            },
+            colors: ['#77B6EA', '#545454'],
+            dataLabels: {
+                enabled: true,
+            },
+            stroke: {
+                curve: 'smooth'
+            },
+            title: {
+                text: 'Sensor Data',
+                align: 'left'
+            },
+            grid: {
+                borderColor: '#e7e7e7',
+                row: {
+                    colors: ['#f3f3f3', 'transparent'], // takes an array which will be repeated on columns
+                    opacity: 0.5
+                },
+            },
+            markers: {
+                size: 1
+            },
+            xaxis: {
+                type: 'datetime',
+                categories: chartX,
+                title: {
+                    text: 'Time'
+                }
+            },
+            yaxis: {
+                title: {
+                    text: `${sensorTypeInfo.label} ${sensorTypeInfo.units}`
+                },
+                min: sensorTypeInfo.sensorTypeIntelligence.binsInfo[0].min,
+                max: sensorTypeInfo.sensorTypeIntelligence.binsInfo[sensorTypeInfo.sensorTypeIntelligence.binsInfo.length - 1].max
+            },
+            legend: {
+                position: 'top',
+                horizontalAlign: 'right',
+                floating: true,
+                offsetY: -25,
+                offsetX: -5
+            }
+        };
+
+        const chart = new ApexCharts(document.querySelector(".chart-container"), options);
+        chart.render();
+    }
+
+    /**
+     * 
+     * @param {*} sensorType 
+     * @param {*} sensorId 
+     */
+    showFullChart(sensorType, sensorId) {
+
+        const classThis = this;
+
+        this._sensorType = sensorType;
+        this._sensorId = sensorId;
+
+        $(this._targetDomElement.querySelector('#modal-full-chart')).empty();
+
+        this._targetDomElement.querySelector('.loader').style.display = 'block';
+
+        $(this._targetDomElement).modal();
+
+        const interval = this.getStartEndTimes();
+
+        const sensorObj = this._AAI.getSensorByID(sensorId);
+        const locationObj = this._AAI.getLocationByID(sensorObj.owner);
+        const mac = sensorObj.mac;
+
+        console.log(`Getting chart for sensor ${sensorObj.id} at location ${locationObj.id}`);
+
+        //if the query is greater than 3 days, automatically enable decimation
+        const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+        let downsample = false;
+        const threshold = 200; //max number of data points per line
+
+        if ((interval.end - interval.start) > threeDaysMs) {
+            downsample = true;
+        }
+
+        //query the data for these sensors
+        $.ajax({
+            beforeSend: function (xhr) {
+                xhr.setRequestHeader('Authorization', "Bearer " + AAI.bearerToken);
+                xhr.setRequestHeader('X-Air-Token', mac);
+            },
+            dataType: "json",
+            type: "GET",
+            url: ASNAPIURL + "sensordata/byrange",
+            data: {
+                mac: mac,
+                type: sensorType,
+                begin: interval.start,
+                end: interval.end,
+                limit: 100000,
+                downsample: downsample,
+                threshold: threshold,
+                offsetData: false,
+            },
+            success: function (data, status, xhr) {
+
+                console.log();
+
+                const strRespMac = xhr.getResponseHeader("X-Air-Token");
+                let respMac = null;
+
+                try {
+                    respMac = parseInt(strRespMac);
+                } catch (error) {
+                    console.error("Could not parse X-Air-Token header");
+                    console.error(error);
+                }
+                classThis.doChartStuff(data, respMac, sensorType, sensorObj, locationObj);
+
+                $(classThis._targetDomElement).modal('show');
+
+            },
+            error: function () {
+                console.log("failed to get sensor data for that sensor");
+            },
+            complete: function() {
+                console.log("Complete");
+                classThis._targetDomElement.querySelector('.loader').style.display = 'none';
+            }
+        });
+
     }
 }
 

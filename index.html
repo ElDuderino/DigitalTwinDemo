@@ -20,8 +20,11 @@
   <title>IoT UI Skeleton</title>
 
   <!-- <link rel="canonical" href="">-->
-
+  <link href="css/default.css" rel="stylesheet">
   <link href="js/bootstrap-5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!--font-awesome-->
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.3.1/css/all.css" integrity="sha384-mzrmE5qonljUremFsqc01SB46JvROS7bZs3IO2EmfFsd15uHvIt+Y8vEf7N7fWAU" crossorigin="anonymous">
 
   <style>
     .bd-placeholder-img {
@@ -96,11 +99,22 @@
     .bd-mode-toggle {
       z-index: 1500;
     }
+
+    #table-live-sensor-data .info-div {
+      text-align: center;
+    }
+
+    #modalChart .modal-subheader span {
+      display: inline-flexbox;
+      font-weight: bold;
+      font-size: 110%;
+    }
   </style>
 
   <link href="js/DataTables/datatables.css" rel="stylesheet">
   <!-- Custom styles for this template -->
   <link href="css/sidebars.css" rel="stylesheet">
+  <link href="js/apexcharts/dist/apexcharts.css" rel="stylesheet">
 </head>
 
 <body>
@@ -211,6 +225,7 @@
     <div id="navbarSearch" class="navbar-search w-100 collapse">
       <input class="form-control w-100 rounded-0 border-0" type="text" placeholder="Search" aria-label="Search">
     </div>
+
   </header>
   <main class="d-flex flex-nowrap">
     <div class="d-flex flex-column flex-shrink-0 p-3 text-bg-dark" style="width: 280px;">
@@ -236,33 +251,14 @@
             Dashboard
           </a>
         </li>
-        <li>
-          <a href="#" class="nav-link text-white">
-            <svg class="bi pe-none me-2" width="16" height="16">
-              <use xlink:href="#grid" />
-            </svg>
-            Products
-          </a>
-        </li>
-        <li>
-          <a href="#" class="nav-link text-white">
-            <svg class="bi pe-none me-2" width="16" height="16">
-              <use xlink:href="#people-circle" />
-            </svg>
-            Customers
-          </a>
-        </li>
       </ul>
       <hr>
       <div class="dropdown">
         <a href="#" class="d-flex align-items-center text-white text-decoration-none dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-          <img src="https://github.com/mdo.png" alt="" width="32" height="32" class="rounded-circle me-2">
-          <strong>mdo</strong>
+          <img src="images/favicon-32x32.png" alt="" width="32" height="32" class="rounded-circle me-2">
+          <strong>User</strong>
         </a>
         <ul class="dropdown-menu dropdown-menu-dark text-small shadow">
-          <li><a class="dropdown-item" href="#">New project...</a></li>
-          <li><a class="dropdown-item" href="#">Settings</a></li>
-          <li><a class="dropdown-item" href="#">Profile</a></li>
           <li>
             <hr class="dropdown-divider">
           </li>
@@ -270,43 +266,42 @@
         </ul>
       </div>
     </div>
-    <div class="d-flex flex-column p-3">
-      <div class="row">
-        
-        <!--controls-->
-        <div id="main-sensor-container-controls" class="mb-2" style="font-size:85%">
-          <div class="form-inline">
-            <div class="form-group p-1 mr-3">
-              <label for="type-select" class="col-form-label mr-2">Filter by Type:</label>
-              <select class="form-control form-control-sm" id="type-select" data-style="btn-primary">
+    <div class="d-flex flex-column p-3" style="width: 100%;">
 
-              </select>
-            </div>
-            <div class="form-group form-check-inline">
-              <label class="form-check-label" for="chk-auto-update"> Auto update:</label><input class="mb-0 ml-2" type="checkbox" id="chk-auto-update" checked>
-            </div>
+      <!--controls-->
+      <div id="main-sensor-container-controls" class="mb-2" style="font-size:85%">
+        <div class="form-inline">
+          <div class="form-group p-1 mr-3">
+            <label for="type-select" class="col-form-label mr-2">Filter by Type:</label>
+            <select class="form-control form-control-sm" id="type-select" data-style="btn-primary">
 
+            </select>
+          </div>
+          <div class="form-group form-check-inline">
+            <label class="form-check-label" for="chk-auto-update"> Auto update:</label><input class="mb-0 ml-2" type="checkbox" id="chk-auto-update" checked>
           </div>
 
-        </div>
-
-        <div class="container p-3 dashboard-stats-container">
-          <h4>Data from all live sensors:</h4>
-          <div id="main-stats-container" class="container">
-
-            <div class="clearfix"></div>
-            <div id="table-container" class="table-responsive">
-              <table id="table-live-sensor-data" width="100%"></table>
-            </div>
-
-          </div>
         </div>
 
       </div>
+
+      <div class="container p-3 dashboard-stats-container">
+        <h4>Data from all live sensors:</h4>
+        <div id="main-stats-container" class="container">
+
+          <div class="clearfix"></div>
+          <div id="table-container" class="table-responsive">
+            <table id="table-live-sensor-data" width="100%"></table>
+          </div>
+
+        </div>
+      </div>
+
     </div>
   </main>
 
   <div w3-include-html="modals/login-include.html"></div>
+  <div w3-include-html="modals/modalFullChart.html"></div>
 
   <script src="js/jquery-3.7.0.js"></script>
   <script src="js/jquery-ui-1.13.2/jquery-ui.js"></script>
@@ -314,6 +309,7 @@
   <script src="js/js.cookie.js"></script>
   <script src="js/bootbox.js"></script>
   <script src="js/DataTables/datatables.js"></script>
+  <script src="js/apexcharts/dist/apexcharts.js"></script>
   <script src="js/moment.js"></script>
   <script src="js/turf.min.js"></script>
   <script src="js/sidebars.js"></script>
@@ -324,6 +320,7 @@
     var lastSelected = null;
     var lastSensorData = null;
     let AAI;
+    let FCPopup;
 
     $(document).ready(() => {
       docReady();
@@ -334,6 +331,8 @@
       console.log("INIT");
 
       AAI = await aretas_init();
+
+      FCPopup = new FullChartPopup(AAI, document.getElementById('modalChart'));
 
       queryCacheData();
 
@@ -372,7 +371,6 @@
 
       console.log("Fetching data");
 
-      $('#loader').show();
       enableInputs(false);
 
       let enable_timer = $('#chk-auto-update').is(":checked");
@@ -404,7 +402,6 @@
           console.log(err);
         },
         complete: function (status) {
-          $('#loader').hide();
           enableInputs(true);
         }
 
@@ -440,17 +437,9 @@
           render: (data, type) => {
             if (type === 'display') {
 
-              let dashIcon = document.createElement("i");
-              dashIcon.setAttribute("class", "fas fa-tachometer-alt mr-2");
-
-              let locHref = document.createElement("a");
-              locHref.setAttribute("class", "");
-              locHref.setAttribute("href", "dashboard.html?locationId=" + data.id);
-              locHref.setAttribute("alt", "Click to go to Location Dashboard");
-              locHref.setAttribute("title", "Click to go to Location Dashboard");
-              locHref.append(dashIcon, data.description);
-
-              return locHref.outerHTML;
+              let locSpan = document.createElement("span");
+              locSpan.append(data.description);
+              return locSpan.outerHTML;
 
             } else {
               return data.description;
@@ -462,16 +451,19 @@
 
             if (type === 'display') {
 
+              const sensorObj = data.sensorObj;
+              const sensorDatum = data.sensorDatum;
+
               let dashIcon = document.createElement("i");
-              dashIcon.setAttribute("class", "fas fa-tachometer-alt mr-2");
+              dashIcon.setAttribute("class", "fas fa-chart-line me-2");
 
               let hrefA = document.createElement("a");
 
-              hrefA.setAttribute("href", "sensor.html?mac=" + data);
+              hrefA.setAttribute("href", "#");
               hrefA.setAttribute("class", "");
-              hrefA.setAttribute("alt", "Click to go to the Sensor Dashboard Page");
-              hrefA.setAttribute("title", "Click to go to the Sensor Dashboard Page");
-              hrefA.append(dashIcon, data);
+              hrefA.setAttribute("alt", "Click for full chart");
+              hrefA.setAttribute("title", "Click for full chart");
+              hrefA.append(dashIcon, sensorDatum.mac);
 
               return hrefA.outerHTML;
 
@@ -567,6 +559,15 @@
         }
       });
 
+      $('#table-live-sensor-data').on('click', 'td', function () {
+        const dt = $('#table-live-sensor-data').DataTable();
+        const data = dt.cell(this).data();
+        console.log(data);
+        const sensorDatum = data.sensorDatum;
+        const sensorObj = data.sensorObj;
+        FCPopup.showFullChart(sensorDatum.type, sensorObj.id);
+      })
+
       console.log("Table constructed!");
 
       return dataTbl;
@@ -624,16 +625,20 @@
         let locationObj = AAI.getLocationByID(sensorObj.owner);
 
         try {
-          dataTbl.row.add([{
-            id: locationObj.id,
-            description: locationObj.description
-          },
-          sensorDatum.mac,
-          sensorObj.description,
-            sensorDatum,
-            sensorDatum,
-            sensorDatum,
-          ]);
+          dataTbl.row.add(
+            [{
+              id: locationObj.id,
+              description: locationObj.description
+            },
+            {
+              sensorObj: sensorObj,
+              sensorDatum: sensorDatum
+            },
+            sensorObj.description,
+              sensorDatum,
+              sensorDatum,
+              sensorDatum,
+            ]);
 
         } catch (e) {
           console.log(e);

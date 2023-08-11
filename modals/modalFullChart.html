@@ -1,0 +1,36 @@
+<!-- Modal For Full Chart Content -->
+<div class="modal chartModal" id="modalChart" tabindex="-1" role="dialog" aria-labelledby="chartModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="chartModalLabel"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+                </button>
+            </div>
+            <div class="modal-subheader p-3">
+                <span id="modalChartPopup-sensor-info"></span>
+                <span id="modalChartPopup-location-info"></span>
+            </div>
+            <div class="form-control-sm p-3">
+                <label for="interval-select" class="h6">Select Time Span:</label>
+                <select class="form-control form-control-sm" id="interval-select" data-style="btn-primary">
+                    <option value="5">5 mins</option>
+                    <option value="10">10 mins</option>
+                    <option value="30">30 mins</option>
+                    <option value="60">1 hr</option>
+                    <option value="240">4 hrs</option>
+                    <option value="480">8 hrs</option>
+                    <option value="720">12 hrs</option>
+                    <option value="1440" selected>24 hrs</option>
+                    <option value="2880">48 hrs</option>
+                    <option value="7200">5 Days</option>
+                    <option value="10080">7 Days</option>
+                </select>
+            </div>
+            <span class="loader"></span>
+            <div class="modal-body" id="modal-full-chart">
+
+            </div>
+        </div>
+    </div>
+</div>
