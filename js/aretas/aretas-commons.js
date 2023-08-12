@@ -199,6 +199,9 @@ function getSensorLocationListOption(sensorLocation, selected) {
 }
 
 /**
+ * Set the background class / color for a device based on the last report time
+ * Essentially, we want devices that haven't reported in a long time to be "warning" color
+ * So a user can quickly locate them visually 
  * 
  * @param {*} timestamp 
  * @returns 
