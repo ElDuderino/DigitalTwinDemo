@@ -1228,7 +1228,7 @@ class FullChartPopup {
                     show: false
                 }
             },
-            colors: ['#77B6EA', '#545454'],
+            colors: [sensorTypeInfo.sensorColor.replace("0x", "#")],
             dataLabels: {
                 enabled: true,
             },
