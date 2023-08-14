@@ -1,7 +1,7 @@
 const METHOD = location.protocol;
 
 //the remote host for the REST API
-const RHOST = "10.0.0.8:8080";
+const RHOST = "iot.aretas.ca";
 
 const ASNHTMLURL = METHOD + "//" + RHOST + "/html/";
 const ASNAPIURL = METHOD + "//" + RHOST + "/rest/";
