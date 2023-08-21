@@ -362,24 +362,25 @@
         <!-- table and charts here -->
         <!--controls-->
         <div id="main-sensor-container-controls" class="mb-2" style="font-size:85%">
-          <div class="form-inline">
-            <div class="form-group p-1 mr-3">
+          <div class="form">
+            <div class="mb-3">
               <label for="type-select" class="col-form-label mr-2">Filter by Type:</label>
               <select class="form-control form-control-sm" id="type-select" data-style="btn-primary">
 
               </select>
+              <div id="selectTypeHelp" class="form-text">Choose a sensor type to show only that type</div>
             </div>
-            <div class="form-group form-check-inline">
-              <label class="form-check-label" for="chk-auto-update"> Auto update:</label><input class="mb-0 ml-2" type="checkbox" id="chk-auto-update" checked>
+            <div class="mb-3">
+              <input class="form-check-input" type="checkbox" id="chk-auto-update" checked>
+              <label class="form-check-label" for="chk-auto-update"> Auto update:</label>
             </div>
-
           </div>
 
         </div>
 
-        <div class="container p-3 dashboard-stats-container">
+        <div class="dashboard-stats-container">
           <h4>Data from all live sensors:</h4>
-          <div id="main-stats-container" class="container">
+          <div id="main-stats-container" class="">
 
             <div class="clearfix"></div>
             <div id="table-container" class="table-responsive">

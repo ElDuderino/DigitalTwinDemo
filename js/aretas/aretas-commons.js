@@ -385,7 +385,6 @@ function renderLocationSelect(domElement, AAI) {
         opt.setAttribute("value", locationSensorView.location.id);
         opt.append(locationSensorView.location.description);
 
-
         if (AAI.clientLocationView.nearestLocationIdWithData != null) {
 
             if (
@@ -1145,13 +1144,14 @@ class FullChartPopup {
      */
 
     constructor(aretasAppInstance, targetDomElement) {
+
         this._AAI = aretasAppInstance;
         this._targetDomElement = targetDomElement;
         this._sensorType = null;
         this._sensorId = null;
 
         const classThis = this;
-        this._targetDomElement.querySelector('#interval-select').addEventListener('change', (evt)=>{
+        this._targetDomElement.querySelector('#interval-select').addEventListener('change', (evt) => {
             classThis.showFullChart(classThis._sensorType, classThis._sensorId);
         });
     }
@@ -1162,11 +1162,7 @@ class FullChartPopup {
      */
     getStartEndTimes() {
 
-        console.log(this._targetDomElement);
-
         let ret = {};
-
-        console.log(this._targetDomElement.querySelector('#interval-select').value);
 
         let interval = parseInt(this._targetDomElement.querySelector('#interval-select').value);
 
@@ -1179,15 +1175,93 @@ class FullChartPopup {
     }
 
     /**
+     * A contract for creating the series name we must reuse to look it up again later
+     * @param {*} sensor_type 
+     * @returns 
+     */
+    getSeriesName(sensor_type) {
+
+        const sensorTypeInfo = this._AAI.getSensorTypeInfo(sensor_type);
+        return `${sensorTypeInfo.label} ${sensorTypeInfo.units}`;
+
+    }
+
+    /**
+     * Prepare apexchart friendly dataset series from the API data query response
+     * Add some extra helper members (sensor type)
+     * 
+     * @param {*} raw_data 
+     */
+    prepareDatasetSeries(raw_data) {
+
+        //prepare the structure of the return object
+        const return_obj = {
+            series_data: null,
+            series_colors: null,
+            y_min: null,
+            y_max: null,
+        };
+
+        const ret_series = new Array();
+        const series_colors = new Array();
+        const sensor_data_map = new Map();
+        let y_min = raw_data[0].data;
+        let y_max = raw_data[0].data;
+
+        for (const sensor_datum of raw_data) {
+
+            sensor_datum.data = Math.round((sensor_datum.data + Number.EPSILON) * 100) / 100
+
+            if (sensor_datum.data > y_max) y_max = sensor_datum.data;
+            if (sensor_datum.data < y_min) y_min = sensor_datum.data;
+
+            const sensor_type = sensor_datum.type;
+            let type_map = sensor_data_map.get(sensor_type);
+            if (type_map == null) {
+                type_map = new Array();
+                sensor_data_map.set(sensor_type, type_map);
+            }
+            type_map.push(sensor_datum);
+        }
+
+        //we should now have a map indexed by sensor_type with all the data for each type
+        //now prepare the series
+        for (const sensor_type of sensor_data_map.keys()) {
+
+            const sensor_data = sensor_data_map.get(sensor_type);
+            const sensorTypeInfo = this._AAI.getSensorTypeInfo(sensor_type);
+
+            series_colors.push(sensorTypeInfo.sensorColor.replace("0x", "#"));
+
+            const chartData = sensor_data.map((datum) => [datum.timestamp, datum.data]);
+
+            const series_item = {
+                name: this.getSeriesName(sensor_type),
+                data: chartData,
+                sensor_type: sensor_type,
+            }
+
+            ret_series.push(series_item);
+
+        }
+
+        return_obj.series_data = ret_series;
+        return_obj.series_colors = series_colors;
+        return_obj.y_min = y_min;
+        return_obj.y_max = y_max;
+
+        return return_obj;
+
+    }
+
+    /**
      * 
      * @param {*} data 
      */
-    doChartStuff(data, mac, sensorType, sensorObj, locationObj) {
+    async doChartStuff(data, mac, sensor_type, sensorObj, locationObj) {
 
         const sensorInfoElement = this._targetDomElement.querySelector("#modalChartPopup-sensor-info");
         const locationInfoElement = this._targetDomElement.querySelector("#modalChartPopup-location-info");
-
-        console.debug(sensorInfoElement);
 
         if (sensorInfoElement.innerHTML) sensorInfoElement.innerHTML = "";
         if (locationInfoElement.innerHTML) locationInfoElement.innerHTML = "";
@@ -1199,25 +1273,15 @@ class FullChartPopup {
         chartContainer.setAttribute("class", "chart-container");
         this._targetDomElement.querySelector('#modal-full-chart').append(chartContainer);
 
-        const sensorTypeInfo = this._AAI.getSensorTypeInfo(sensorType);
-
-        const chartY = data.map((datum)=> datum.data);
-        const chartX = data.map((datum)=> datum.timestamp);
-
-        console.log(sensorTypeInfo);
+        const prepared_chart_series = this.prepareDatasetSeries(data);
 
         const options = {
-            series: [
-                {
-                    name: `${sensorTypeInfo.label} ${sensorTypeInfo.units}`,
-                    data: chartY,
-                },
-            ],
+            series: prepared_chart_series.series_data,
             chart: {
-                height: 350,
+                height: 600,
                 type: 'line',
                 dropShadow: {
-                    enabled: true,
+                    enabled: false,
                     color: '#000',
                     top: 18,
                     left: 7,
@@ -1225,15 +1289,19 @@ class FullChartPopup {
                     opacity: 0.2
                 },
                 toolbar: {
-                    show: false
+                    show: false,
+                },
+                animations:{
+                    enabled: false,
                 }
             },
-            colors: [sensorTypeInfo.sensorColor.replace("0x", "#")],
+            colors: prepared_chart_series.series_colors,
             dataLabels: {
-                enabled: true,
+                enabled: false,
             },
             stroke: {
-                curve: 'smooth'
+                curve: 'smooth',
+                width: 2,
             },
             title: {
                 text: 'Sensor Data',
@@ -1242,38 +1310,43 @@ class FullChartPopup {
             grid: {
                 borderColor: '#e7e7e7',
                 row: {
-                    colors: ['#f3f3f3', 'transparent'], // takes an array which will be repeated on columns
+                    colors: ['#dddddd', '#cccccc'], // takes an array which will be repeated on columns
                     opacity: 0.5
                 },
             },
             markers: {
-                size: 1
+                size: 2,
+                colors: prepared_chart_series.series_colors,
+                strokeWidth:1,
+                strokeColor:'#cccccc'
             },
             xaxis: {
                 type: 'datetime',
-                categories: chartX,
                 title: {
                     text: 'Time'
                 }
             },
             yaxis: {
                 title: {
-                    text: `${sensorTypeInfo.label} ${sensorTypeInfo.units}`
+                    text: "Data"
                 },
-                min: sensorTypeInfo.sensorTypeIntelligence.binsInfo[0].min,
-                max: sensorTypeInfo.sensorTypeIntelligence.binsInfo[sensorTypeInfo.sensorTypeIntelligence.binsInfo.length - 1].max
+                min: prepared_chart_series.y_min,
+                max: parseInt(prepared_chart_series.y_max) * 1.2,
             },
             legend: {
                 position: 'top',
                 horizontalAlign: 'right',
-                floating: true,
-                offsetY: -25,
-                offsetX: -5
-            }
+                //floating: true,
+                //offsetY: 100,
+                //offsetX: -5,
+                showForSingleSeries: true,
+            },
         };
 
         const chart = new ApexCharts(document.querySelector(".chart-container"), options);
-        chart.render();
+
+        await chart.render();
+
     }
 
     /**
@@ -1302,12 +1375,12 @@ class FullChartPopup {
 
         console.log(`Getting chart for sensor ${sensorObj.id} at location ${locationObj.id}`);
 
-        //if the query is greater than 3 days, automatically enable decimation
-        const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+        //if the query is greater than 8 hours, automatically enable decimation
+        const eight_hrs = 8 * 60 * 60 * 1000;
         let downsample = false;
-        const threshold = 200; //max number of data points per line
+        const threshold = 100; //max number of data points per line
 
-        if ((interval.end - interval.start) > threeDaysMs) {
+        if ((interval.end - interval.start) > eight_hrs) {
             downsample = true;
         }
 
@@ -1322,7 +1395,6 @@ class FullChartPopup {
             url: ASNAPIURL + "sensordata/byrange",
             data: {
                 mac: mac,
-                type: sensorType,
                 begin: interval.start,
                 end: interval.end,
                 limit: 100000,
@@ -1351,8 +1423,8 @@ class FullChartPopup {
             error: function () {
                 console.log("failed to get sensor data for that sensor");
             },
-            complete: function() {
-                console.log("Complete");
+            complete: function () {
+                console.log("Data query function complete");
                 classThis._targetDomElement.querySelector('.loader').style.display = 'none';
             }
         });
