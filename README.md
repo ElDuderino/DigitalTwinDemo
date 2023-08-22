@@ -1,3 +1,3 @@
-# IoT UI Skeleton
+# IoT UI Skeleton (Digital Twin Demo)
 
-A basic framework for connecting to the Aretas REST API, logging in users, accessing BO, etc. 
+We're using the IoT Skeleton and Smplrspace to provide a demo for Digital Twin
