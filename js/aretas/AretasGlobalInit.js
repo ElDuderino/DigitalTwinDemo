@@ -306,6 +306,65 @@ class AretasAppInstance {
         return null;
 
     }
+
+    /**
+     * 
+     * @param {*} mac 
+     * @param {*} start 
+     * @param {*} end 
+     * @param {*} sensorType 
+     * @param {*} downsample
+     * @param {*} threshold
+     * @param {*} offsetData
+     * @returns 
+     */
+    async getSensorDataByRangeF(mac, start, end, sensorType = null, downsample=false, threshold=300, offsetData = false) {
+
+        let url = ASNAPIURL + "sensordata/byrange";
+        //query the latest data
+        let queryData = {
+            mac: mac,
+            begin: start,
+            end: end,
+            limit: 10000000,
+            downsample: downsample,
+            threshold: threshold,
+            offsetData: offsetData
+        };
+
+        if(sensorType != null){
+            queryData['type'] = sensorType;
+        }
+
+        let classThis = this;
+
+        try {
+
+            let response = await fetch(`${url}?` + new URLSearchParams(queryData), {
+                headers: {
+                    "Authorization": `Bearer ${classThis.bearerToken}`,
+                    "X-Air-Token": mac
+                }
+            });
+
+            let data = await response.json();
+            let macToken = response.headers.get("X-AIR-Token");
+
+            return {
+                data,
+                macToken
+            };
+
+        } catch (error) {
+
+            console.error("Failed to query data");
+            console.error(error);
+
+        }
+
+        return null;
+
+    }
     /**
      * This function fetches the latest data from a list of sensors from the cache
      * This function is very fast (< 50ms for the whole TLS/REST transaction for dozens of monitors... 100+ sensors)
@@ -324,7 +383,7 @@ class AretasAppInstance {
                     xhr.setRequestHeader('Authorization', "Bearer " + AAI.bearerToken);
                 },
                 contentType: "application/json",
-                dataType: "json",
+                dataType: "jsonp",
                 type: "POST",
                 url: ASNAPIURL + "sensorreport/latest",
                 data: jsonStr,
@@ -337,6 +396,48 @@ class AretasAppInstance {
             console.error(sensorList);
             console.error(error);
         }
+
+    }
+
+    /**
+     * This function fetches the latest data from a list of sensors from the cache
+     * This function is very fast (< 50ms for the whole TLS/REST transaction for dozens of monitors... 100+ sensors)
+     * This version uses fetch
+     * @param {*} sensorList 
+     * @returns 
+     */
+    async getLatestSensorDataF(sensorList) {
+
+        const jsonStr = JSON.stringify(sensorList);
+
+        let classThis = this;
+
+        const url = ASNAPIURL + "sensorreport/latest";
+
+        try {
+
+            let response = await fetch(`${url}?`, {
+                headers: {
+                    "Authorization": `Bearer ${classThis.bearerToken}`,
+                    "Content-Type": "application/json",
+                },
+                method: "POST",
+                body: jsonStr,
+                mode: "cors",
+            });
+
+            let data = await response.json();
+
+            return data;
+
+        } catch (error) {
+
+            console.error("Failed to query cached data");
+            console.error(error);
+
+        }
+
+        return null;
 
     }
 

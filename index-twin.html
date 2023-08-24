@@ -22,6 +22,7 @@
   <link href="js/bootstrap-5.3.0/dist/css/bootstrap.css" rel="stylesheet">
   <link href="js/DataTables/datatables.css" rel="stylesheet">
   <link href="js/apexcharts/dist/apexcharts.css" rel="stylesheet">
+  <link href="https://app.smplrspace.com/lib/smplr.css" rel="stylesheet" />
 
   <!-- Custom styles for this template -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css" rel="stylesheet">
@@ -250,7 +251,7 @@
               <div id="selectTypeHelp" class="form-text">Choose a sensor type to show only that type</div>
             </div>
             <div class="mb-3">
-              <input class="form-check-input" type="checkbox" id="chk-auto-update" checked>
+              <input class="form-check-input" type="checkbox" id="chk-auto-update">
               <label class="form-check-label" for="chk-auto-update"> Auto update:</label>
             </div>
           </div>
@@ -260,7 +261,9 @@
         <div class="dashboard-stats-container">
           <h4>Data from all live sensors:</h4>
           <div id="main-stats-container" class="">
-
+            <div class="smplr-wrapper">
+              <div id="test" class="smplr-embed"></div>
+            </div>
             <div class="clearfix"></div>
             <div id="table-container" class="table-responsive">
               <table id="table-live-sensor-data" width="100%"></table>
@@ -288,12 +291,17 @@
   <script src="js/sidebars.js"></script>
   <script src="js/aretas/AretasGlobalInit.js"></script>
   <script src="js/aretas/aretas-commons.js"></script>
+  <script src="js/aretas/SpatialAgent.js"></script>
   <script>
     var querySensorDataTimeoutRef = null;
     var lastSelected = null;
     var lastSensorData = null;
     let AAI;
     let FCPopup;
+    let space;
+
+    const __locationId = null;
+    const __buildingMapId = "f65b81b35e324950bd392c37ae5040cd";
 
     $(document).ready(() => {
       docReady();
@@ -307,7 +315,38 @@
 
       FCPopup = new FullChartPopup(AAI, document.getElementById('modalChart'));
 
-      queryCacheData();
+      const buildingMap = AAI.getBuildingMapByID(__buildingMapId);
+      const sensorList = AAI.getSensorListByBuildingMap(buildingMap, true);
+      const macsList = sensorList.map((sensor) => sensor.mac);
+
+      console.log(sensorList);
+
+      import("https://app.smplrspace.com/lib/smplr.mjs").then((smplr) => {
+        space = new smplr.Space({
+          spaceId: "ba2fab12-fd95-42e0-bd76-30690a54ac0e",
+          clientToken: "pub_dc7f419b37484708bf26bdbde0fe768b",
+          containerId: "test",
+        });
+        space.startViewer({
+          renderOptions: {
+            backgroundColor: "#999999",
+            walls: {
+              alpha: 0.5,
+            },
+            floorplan: {
+              render: true,
+              alpha: 0.5
+            }
+          },
+          preview: true,
+          onReady: onSpaceViewerReady,
+          onError: (error) => console.error("Could not start viewer", error),
+        });
+
+
+      });
+
+      queryCacheData(macsList);
 
       $('#type-select').change(() => {
         lastSelected = $('#type-select :selected').val();
@@ -319,7 +358,7 @@
         let enable_timer = $('#chk-auto-update').is(":checked");
         if (enable_timer) {
           clearTimer();
-          queryTileData();
+          queryCacheData();
         } else {
           clearTimer();
         }
@@ -327,6 +366,149 @@
 
 
     }
+
+    async function onSpaceViewerReady() {
+
+      space.enablePickingMode({
+        onPick: (evt) => {
+          console.log(evt);
+        },
+      });
+
+      const buildingMap = AAI.getBuildingMapByID(__buildingMapId);
+      const sensorList = AAI.getSensorListByBuildingMap(buildingMap, true);
+
+      /**
+       * We need to the original map sprite because the API doesn't set the computed height and width of the map image (should add this)
+       */
+      const mapSprite = new Image();
+      mapSprite.src = ASNAPIURL + `buildingmaps/getimage?bearerToken=${AAI.bearerToken}&locationId=${buildingMap.owner}&mapId=${buildingMap.id}`;
+      await mapSprite.decode();
+
+      console.log(`width:${mapSprite.width} height:${mapSprite.height}`);
+
+      buildingMap.computedHeight = mapSprite.height;
+      buildingMap.computedWidth = mapSprite.width;
+
+      console.log(buildingMap);
+
+      console.log("Space ready");
+
+      /**
+       *  get the building map object (by id?)
+       *  the location id is 6ec09ce917c94f9c86ef805b44f17cb4 
+       *  the building map id is f65b81b35e324950bd392c37ae5040cd
+       * The format for a "point" in smplrspace is:
+       * {
+          id: 'IW27',
+          position: {
+            levelIndex: 0,
+            x: 29.68167428942292,
+            z: -18.127912456974727,
+            elevation: 2,
+          },
+        }
+       * 
+       * 
+       */
+      //the model lower left corner
+      const offsetX = 13.694743526685679;
+      const offsetZ = -24.224766735537234;
+
+      sensors = sensorList.map((sensor) => {
+
+        coords = getMapCoords(buildingMap, sensor);
+
+        console.log(coords);
+
+        return {
+          id: sensor.description,
+          mac: sensor.mac,
+          sensor_id: sensor.id,
+          position: {
+            levelIndex: 0,
+            x: coords.x + offsetX,
+            z: -coords.y + (offsetZ + buildingMap.actualHeight),
+            elevation: coords.z,
+          },
+        }
+
+      });
+
+      const placeholders = [];
+
+      placeholders.push({
+        id: "Origin",
+        position: {
+          levelIndex: 0,
+          x: 0.0,
+          z: 0.0,
+          elevation: 0
+        },
+      });
+
+      placeholders.push({
+        id: "Building Origin",
+        position: {
+          levelIndex: 0,
+          x: offsetX,
+          z: offsetZ,
+          elevation: 0
+        }
+      });
+
+      //load the sensors for the one map we have
+      space.addDataLayer({
+        id: 'sensors',
+        type: 'point',
+        data: sensors,
+        tooltip: (d) => `Sensor ${d.id}`,
+        onClick: (evt) => {
+          console.log(evt);
+          FCPopup.showFullChart(null, evt.sensor_id);
+        },
+        width: 0.1,
+        color: '#357afc',
+        diameter: 0.4,
+      });
+
+      space.addDataLayer({
+        id: 'placeholders',
+        type: 'point',
+        data: placeholders,
+        tooltip: (d) => `${d.id}`,
+        color: '#FFFFFF',
+        diameter: 0.2,
+      });
+
+
+    }
+    /**
+     * Translate the imageMapX/imageMapY coords to "real" map coordinates
+     * 
+     * In Aretas coordinates, x is 2D map x-axis (east-west) y is 2D map y-axis (north-south) and z is height off the ground
+     * When a user clicks to place an object in a building map in the 2D system, we only store the imageMapX and imageMapY coordinates
+     * In this case, we need to rescale them to "real" map coordinates
+     */
+    function getMapCoords(buildingMap, sensorObj) {
+
+      mapX = 0.0;
+      mapY = 0.0;
+      mapX = 0.0;
+
+      mapX = sensorObj.imgMapX / buildingMap.computedWidth * buildingMap.actualWidth;
+      mapY = sensorObj.imgMapY / buildingMap.computedHeight * buildingMap.actualHeight;
+      mapZ = 1.8; //just assume the sensor is approximately head height 
+
+      return { x: mapX, y: mapY, z: mapZ };
+    }
+
+    const autoElevation = (mode) =>
+      map(
+        evolve({
+          position: { elevation: (value) => (mode === '3d' ? value : 0) },
+        })
+      );
 
     function clearTimer() {
       if (querySensorDataTimeoutRef != null) {
@@ -340,7 +522,7 @@
       }
     }
 
-    function queryCacheData() {
+    async function queryCacheData(macsList) {
 
       console.log("Fetching data");
 
@@ -348,37 +530,27 @@
 
       let enable_timer = $('#chk-auto-update').is(":checked");
 
-      //we should have a populated ClientLocationView
-      //lets get the sensor reports
-      $.ajax({
-        beforeSend: function (xhr) {
-          xhr.setRequestHeader('Authorization', "Bearer " + AAI.bearerToken);
-        },
-        dataType: "json",
-        contentType: "application/json",
-        type: "POST",
-        url: ASNAPIURL + "sensorreport/latest",
-        data: JSON.stringify(AAI.clientLocationView.allMacs),
-        success: function (data) {
-          //render the tiles
-          lastSensorData = data;
-          updateSensorStatusTable(lastSensorData, true);
-          if (enable_timer) {
-            querySensorDataTimeoutRef = setTimeout(queryCacheData, 30000);
-          } else {
-            clearTimer();
-          }
-        },
-        error: function (err) {
-          bootbox.alert("Couldn't load sensor status reports!");
-          console.log("Error fetching sensorreports");
-          console.log(err);
-        },
-        complete: function (status) {
-          enableInputs(true);
+      const sensor_data = await AAI.getLatestSensorDataF(macsList);
+
+      console.log(sensor_data);
+
+      enableInputs(true);
+
+      if (sensor_data == null) {
+        
+        bootbox.alert("Couldn't load sensor status reports!");
+
+      } else {
+
+        lastSensorData = sensor_data;
+        updateSensorStatusTable(lastSensorData, true);
+        if (enable_timer) {
+          querySensorDataTimeoutRef = setTimeout(queryCacheData, 30000);
+        } else {
+          clearTimer();
         }
 
-      });
+      }
 
     }
 

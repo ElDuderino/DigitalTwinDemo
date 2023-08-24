@@ -1291,7 +1291,7 @@ class FullChartPopup {
                 toolbar: {
                     show: false,
                 },
-                animations:{
+                animations: {
                     enabled: false,
                 }
             },
@@ -1317,8 +1317,8 @@ class FullChartPopup {
             markers: {
                 size: 2,
                 colors: prepared_chart_series.series_colors,
-                strokeWidth:1,
-                strokeColor:'#cccccc'
+                strokeWidth: 1,
+                strokeColor: '#cccccc'
             },
             xaxis: {
                 type: 'datetime',
@@ -1354,7 +1354,7 @@ class FullChartPopup {
      * @param {*} sensorType 
      * @param {*} sensorId 
      */
-    showFullChart(sensorType, sensorId) {
+    async showFullChart(sensorType, sensorId) {
 
         const classThis = this;
 
@@ -1384,50 +1384,19 @@ class FullChartPopup {
             downsample = true;
         }
 
-        //query the data for these sensors
-        $.ajax({
-            beforeSend: function (xhr) {
-                xhr.setRequestHeader('Authorization', "Bearer " + AAI.bearerToken);
-                xhr.setRequestHeader('X-Air-Token', mac);
-            },
-            dataType: "json",
-            type: "GET",
-            url: ASNAPIURL + "sensordata/byrange",
-            data: {
-                mac: mac,
-                begin: interval.start,
-                end: interval.end,
-                limit: 100000,
-                downsample: downsample,
-                threshold: threshold,
-                offsetData: false,
-            },
-            success: function (data, status, xhr) {
+        const resp_obj = await this._AAI.getSensorDataByRangeF(
+            mac,
+            interval.start,
+            interval.end,
+            null,
+            downsample,
+            threshold,
+            false);
 
-                console.log();
+        classThis.doChartStuff(resp_obj.data, resp_obj.macToken, sensorType, sensorObj, locationObj);
 
-                const strRespMac = xhr.getResponseHeader("X-Air-Token");
-                let respMac = null;
-
-                try {
-                    respMac = parseInt(strRespMac);
-                } catch (error) {
-                    console.error("Could not parse X-Air-Token header");
-                    console.error(error);
-                }
-                classThis.doChartStuff(data, respMac, sensorType, sensorObj, locationObj);
-
-                $(classThis._targetDomElement).modal('show');
-
-            },
-            error: function () {
-                console.log("failed to get sensor data for that sensor");
-            },
-            complete: function () {
-                console.log("Data query function complete");
-                classThis._targetDomElement.querySelector('.loader').style.display = 'none';
-            }
-        });
+        $(classThis._targetDomElement).modal('show');
+        classThis._targetDomElement.querySelector('.loader').style.display = 'none';
 
     }
 }
