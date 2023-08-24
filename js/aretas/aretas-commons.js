@@ -1310,7 +1310,7 @@ class FullChartPopup {
             grid: {
                 borderColor: '#e7e7e7',
                 row: {
-                    colors: ['#dddddd', '#cccccc'], // takes an array which will be repeated on columns
+                    colors: ['#111111', '#333333'], // takes an array which will be repeated on columns
                     opacity: 0.5
                 },
             },
